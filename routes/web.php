@@ -10,6 +10,9 @@ Route::get('/', function () {
 
 Route::get('/export-articles', [ArticleController::class, 'exportCSV'])->name('articles.export');
 
+Route::post('/import-articles', [ArticleController::class, 'importCSV'])->name('articles.import');
+
+
 
 
 

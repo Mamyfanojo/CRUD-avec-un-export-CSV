@@ -82,5 +82,33 @@ class ArticleController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+    public function importCSV(Request $request)
+{
+    // Vérifier si un fichier a été envoyé
+    if ($request->hasFile('csv_file')) {
+        $file = $request->file('csv_file');
+
+        // Ouvrir le fichier en lecture
+        $handle = fopen($file->getPathname(), 'r');
+
+        // Sauter la première ligne (en-têtes du CSV)
+        fgetcsv($handle);
+
+        // Lire chaque ligne et insérer dans la base de données
+        while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+            Article::create([
+                'titre' => $data[0],   // Première colonne = titre
+                'contenu' => $data[1], // Deuxième colonne = contenu
+            ]);
+        }
+
+        fclose($handle);
+
+        return back()->with('success', 'Importation réussie.');
+    }
+
+    return back()->with('error', 'Veuillez sélectionner un fichier CSV.');
+}
+
 }
 

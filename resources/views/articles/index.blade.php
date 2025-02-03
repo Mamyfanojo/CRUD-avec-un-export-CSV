@@ -5,6 +5,14 @@
     <h2 class="mb-4">Liste des Articles</h2>
     <a href="{{ route('articles.create') }}" class="btn btn-primary mb-3">Créer un article</a>
     <a href="{{ route('articles.export') }}" class="btn btn-primary">Exporter en CSV</a>
+    <form action="{{ route('articles.import') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+        <div class="form-group">
+            <input type="file" name="csv_file" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-success">Importer CSV</button>
+    </form>
+
 
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>

@@ -61,54 +61,76 @@ class ArticleController extends Controller
     {
         $articles = Article::all();
         $fileName = 'articles.csv';
-
+    
         $headers = [
-            "Content-Type" => "text/csv",
+            "Content-Type" => "text/csv; charset=UTF-8",
             "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma" => "no-cache",
+            "Expires" => "0",
         ];
-
+    
         $callback = function () use ($articles) {
             $file = fopen('php://output', 'w');
-            // Ajouter l'en-tête du CSV
-            fputcsv($file, ['Titre', 'Contenu']);
-
-            // Ajouter les données des articles
+    
+            // Ajouter le BOM pour la compatibilité avec Excel
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    
+            // Définir le séparateur à ";"
+            fputcsv($file, ['Titre', 'Contenu'], ';');
+    
             foreach ($articles as $article) {
-                fputcsv($file, [$article->titre, $article->contenu]);
+                fputcsv($file, [$article->titre, $article->contenu], ';');
             }
-
+    
             fclose($file);
         };
-
+    
         return response()->stream($callback, 200, $headers);
     }
+    
     public function importCSV(Request $request)
 {
-    // Vérifier si un fichier a été envoyé
-    if ($request->hasFile('csv_file')) {
-        $file = $request->file('csv_file');
+    $file = $request->file('csv_file');
+    set_time_limit(1200); // Augmente la limite d'exécution
 
-        // Ouvrir le fichier en lecture
+    if ($file) {
         $handle = fopen($file->getPathname(), 'r');
+        fgetcsv($handle, 1000, ';'); // Ignorer l'en-tête
 
-        // Sauter la première ligne (en-têtes du CSV)
-        fgetcsv($handle);
+        $articles = []; // Tableau pour stocker les données en mémoire
+        $titresExistants = Article::pluck('titre')->toArray(); // Récupérer tous les titres existants
 
-        // Lire chaque ligne et insérer dans la base de données
-        while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-            Article::create([
-                'titre' => $data[0],   // Première colonne = titre
-                'contenu' => $data[1], // Deuxième colonne = contenu
-            ]);
+        while (($data = fgetcsv($handle, 1000, ',')) !== false) {
+            $titre = $data[0];
+            $contenu = $data[1];
+
+            if (!in_array($titre, $titresExistants)) {
+                $articles[] = [
+                    'titre' => $titre,
+                    'contenu' => $contenu,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            // Insérer en lot toutes les 1000 lignes
+            if (count($articles) >= 1000) {
+                Article::insert($articles);
+                $articles = []; // Réinitialiser le tableau
+            }
+        }
+
+        // Insérer les données restantes
+        if (!empty($articles)) {
+            Article::insert($articles);
         }
 
         fclose($handle);
-
-        return back()->with('success', 'Importation réussie.');
     }
 
-    return back()->with('error', 'Veuillez sélectionner un fichier CSV.');
+    return back()->with('success', 'Importation rapide terminée sans doublons !');
 }
+
 
 }
 
